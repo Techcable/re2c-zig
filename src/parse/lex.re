@@ -656,6 +656,7 @@ Ret Input::try_lex_string_in_code(uint8_t quote) {
 }
 
 Ret Input::lex_string(uint8_t delim) {
+    // TODO: Better errors for mismatched strings
 loop: /*!re2c
     ["']       { if (cur[-1] == delim) return Ret::OK; else goto loop; }
     esc [\\"'] { goto loop; }

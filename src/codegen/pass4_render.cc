@@ -46,6 +46,7 @@ static void render_line_info(
         o << "//line \"" << fname << "\":" << line << "\n";
         break;
     case Lang::RUST:
+    case Lang::ZIG:
         // For Rust line directives should be removed by `remove_empty` pass.
         UNREACHABLE();
     }
@@ -173,6 +174,11 @@ static const char* var_type_rust(VarType type, const opt_t* opts) {
     return nullptr;
 }
 
+static const char* var_type_zig(VarType type, const opt_t* opts) {
+    // Good enough for now
+    return var_type_rust(type, opts);
+}
+
 static void render_var(RenderContext& rctx, const CodeVar* var) {
     std::ostringstream& os = rctx.os;
     const opt_t* opts = rctx.opts;
@@ -204,6 +210,18 @@ static void render_var(RenderContext& rctx, const CodeVar* var) {
         ++rctx.line;
         break;
 
+    case Lang::ZIG:
+        os << ind << "var " << var->name;
+        os << ": " << var_type_zig(var->type, opts) << " = ";
+        if (var->init) {
+            os << var->init;
+        } else {
+            os << "undefined";
+        }
+        os << ";" << std::endl;
+        ++rctx.line;
+        break;
+
     case Lang::RUST:
         // In Rust uninitialized variable is an error, but if the compiler is able to see that all
         // paths overwrite the initial value, it warns about unused assignments.
@@ -220,6 +238,8 @@ static bool case_on_same_line(const CodeCase* code, const opt_t* opts) {
     return first
            && first->next == nullptr
            && (first->kind == CodeKind::STMT || first->kind == CodeKind::TEXT)
+           // Zig cannot handle statements on same line of case
+           && (opts->lang != Lang::ZIG || first->kind == CodeKind::STMT)
            && opts->lang != Lang::GO; // gofmt prefers cases on a new line
 }
 
@@ -300,6 +320,19 @@ static void render_case_range(
         }
         break;
 
+    case Lang::ZIG:
+        render_number(rctx, low, type);
+        if (low != upp) {
+            os << "...";
+            render_number(rctx, upp, type);
+        }
+        if (last) {
+            os << " =>";
+        } else {
+            os << ", ";
+        }
+        break;
+
     case Lang::RUST:
         render_number(rctx, low, type);
         if (low != upp) {
@@ -323,7 +356,11 @@ static void render_case(RenderContext& rctx, const CodeCase* code) {
     const Code* first = code->body->head;
 
     const char* s_case, *s_then, *s_default;
-    if (opts->lang == Lang::RUST) {
+    if (opts->lang == Lang::ZIG) {
+        s_case = "";
+        s_then = " =>";
+        s_default = "else";
+    } else if (opts->lang == Lang::RUST) {
         s_case = "";
         s_then = " =>";
         s_default = "_";
@@ -371,6 +408,8 @@ static void render_case(RenderContext& rctx, const CodeCase* code) {
     } else {
         // For Rust wrap multi-line cases in braces.
         if (opts->lang == Lang::RUST) os << " {";
+        // same for zig
+        if (opts->lang == Lang::ZIG) os << "{";
         os << std::endl;
         ++rctx.line;
         for (const Code* s = first; s; s = s->next) {
@@ -378,8 +417,10 @@ static void render_case(RenderContext& rctx, const CodeCase* code) {
             render(rctx, s);
             --rctx.ind;
         }
-        if (opts->lang == Lang::RUST) {
-            os << indent(rctx.ind, opts->indent_str) << "}" << std::endl;
+        if (opts->lang == Lang::RUST || opts->lang == Lang::ZIG) {
+            os << indent(rctx.ind, opts->indent_str) << "}";
+            if (code->next != nullptr && opts->lang == Lang::ZIG) os << ",";
+            os << std::endl;
             ++rctx.line;
         }
     }
@@ -483,7 +524,10 @@ static void render_loop(RenderContext& rctx, const CodeList* loop) {
         os << indent(rctx.ind, opts->indent_str) << "for (;;)";
         break;
     case Lang::D:
-        os << indent(rctx.ind, opts->indent_str) << "while (true)";
+    case Lang::ZIG:
+        os << indent(rctx.ind, opts->indent_str);
+        if (!opts->label_loop.empty()) os << opts->label_loop << ": ";
+        os << "while (true)";
         break;
     case Lang::GO:
         // In Go label is on a separate line with zero indent.
@@ -661,6 +705,9 @@ static void render_abort(RenderContext& rctx) {
     case Lang::D:
         DCHECK(opts->state_abort);
         os << "abort();";
+        break;
+    case Lang::ZIG:
+        os << "@panic(\"internal lexer error\");";
         break;
     case Lang::GO:
         os << "panic(\"internal lexer error\")";

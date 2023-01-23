@@ -404,6 +404,8 @@ inline Code* code_state_goto(OutAllocator& alc, BlockNameList* blocks) {
 inline Code* code_line_info_input(OutAllocator& alc, Lang lang, const loc_t& loc) {
     // Rust has no line directives.
     if (lang == Lang::RUST) return nullptr;
+    // Zig has no line directives
+    if (lang == Lang::ZIG) return nullptr;
 
     Code* x = new_code(alc, CodeKind::LINE_INFO_INPUT);
     x->loc = loc;
@@ -421,6 +423,8 @@ inline Code* code_var(OutAllocator& alc, VarType type, const std::string& name, 
 inline Code* code_line_info_output(OutAllocator& alc, Lang lang) {
     // Rust has no line directives.
     if (lang == Lang::RUST) return nullptr;
+    // Zig has no line directives
+    if (lang == Lang::ZIG) return nullptr;
 
     return new_code(alc, CodeKind::LINE_INFO_OUTPUT);
 }

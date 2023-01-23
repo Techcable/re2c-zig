@@ -16,7 +16,8 @@ enum class Lang: uint32_t {
     C,
     D,
     GO,
-    RUST
+    RUST,
+    ZIG
 };
 
 enum class Api: uint32_t {

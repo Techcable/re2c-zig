@@ -18,6 +18,11 @@ LOCAL_NODISCARD(Ret fix_conopt(conopt_t& glob)) {
         // No line directives in Rust: https://github.com/rust-lang/rfcs/issues/1862
         glob.line_dirs = false;
     }
+    if (glob.lang == Lang::ZIG) {
+        glob.loop_switch = true; // no gotos
+        // No line directives in Zig
+        glob.line_dirs = false;
+    }
 
     // append directory separator '/' to all paths that do not have it
     for (std::string& p : glob.include_paths) {
@@ -270,6 +275,9 @@ LOCAL_NODISCARD(Ret fix_mutopt(const conopt_t& glob,
         if (is_default.label_loop) real.label_loop = "'yyl";
     } else if (glob.lang == Lang::GO) {
         // In Go `continue` statements have labels, use it to avoid ambiguity.
+        if (is_default.label_loop) real.label_loop = "yyl";
+    } else if (glob.lang == Lang::ZIG) {
+        // In ZIG `continue` statements have labels, use it to avoid ambiguity.
         if (is_default.label_loop) real.label_loop = "yyl";
     }
     // errors

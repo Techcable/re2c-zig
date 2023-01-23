@@ -409,7 +409,10 @@ static void gen_continue_yyloop(Output& output, CodeList* stmts, const char* nex
     append(stmts, code_stmt(alc, buf.flush()));
 
     buf.cstr("continue");
-    if (!opts->label_loop.empty()) buf.cstr(" ").str(opts->label_loop);
+    if (!opts->label_loop.empty()) {
+        const char *prefix = opts->lang == Lang::ZIG ? " :" : " ";
+        buf.cstr(prefix).str(opts->label_loop);
+    }
     append(stmts, code_stmt(alc, buf.flush()));
 }
 
@@ -1438,7 +1441,7 @@ static void gen_cond_enum(Scratchbuf& buf,
         CodeList* stmts = code_list(alc);
         CodeList* block = code_list(alc);
 
-        if (opts->lang == Lang::C || opts->lang == Lang::D) {
+        if (opts->lang == Lang::C || opts->lang == Lang::D || opts->lang == Lang::ZIG) {
             start = buf.cstr("enum ").str(opts->api_cond_type).cstr(" {").flush();
             end = "};";
             for (const StartCond& cond : conds) {
@@ -1752,6 +1755,7 @@ LOCAL_NODISCARD(Ret gen_yymax(Output&  output, Code* code)) {
             code->text = buf.cstr("var ").cstr(varname).cstr(" int = ").u64(max).flush();
             break;
         case Lang::RUST:
+        case Lang::ZIG:
             code->text = buf.cstr("const ").cstr(varname).cstr(": usize = ").u64(max).flush();
             break;
         }
@@ -1794,6 +1798,9 @@ CodeList* gen_bitmap(Output& output, const CodeBitmap* bitmap, const std::string
         case Lang::GO:
         case Lang::RUST:
             text = o.str(name).cstr(" := []byte{").flush();
+            break;
+        case Lang::ZIG:
+            text = o.cstr("const ").str(name).cstr(" = [_]u8{").flush();
             break;
     }
     append(stmts, code_text(alc, text));
